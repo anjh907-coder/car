@@ -7,30 +7,24 @@ import {
   Eye,
   FilePlus2,
   FolderOpen,
-  HardDrive,
   Info,
   Loader2,
   PenLine,
   Save,
-  Settings,
 } from 'lucide-react';
 import { A4Preview } from './components/A4Preview';
-import { GasSettingsModal } from './components/GasSettingsModal';
 import { LoadProjectModal } from './components/LoadProjectModal';
 import { PlannerForm } from './components/PlannerForm';
 import {
   deleteSavedProject,
   fetchSavedProjects,
-  getSavedGasUrl,
   loadDraftFromBrowser,
   saveDraftToBrowser,
   saveOrUpdateProject,
-  setSavedGasUrl,
 } from './services/storageService';
 import {
   ProjectPlan,
   SavedProjectRecord,
-  StorageMode,
   ToastNotice,
   createEmptyProject,
   createSampleProject,
@@ -42,14 +36,12 @@ export default function App() {
   const [plan, setPlan] = useState<ProjectPlan>(() => {
     return loadDraftFromBrowser() ?? createEmptyProject();
   });
-  const [gasUrl, setGasUrl] = useState<string>(() => getSavedGasUrl());
   const [mobileTab, setMobileTab] = useState<'form' | 'preview'>('form');
 
   const [isSaving, setIsSaving] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [savedRecords, setSavedRecords] = useState<SavedProjectRecord[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState(false);
@@ -59,8 +51,6 @@ export default function App() {
 
   const a4CaptureRef = useRef<HTMLDivElement | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-
-  const storageMode: StorageMode = gasUrl.trim() ? 'gas' : 'local';
 
   const showToast = useCallback((type: ToastNotice['type'], message: string) => {
     if (toastTimerRef.current) {
@@ -85,29 +75,26 @@ export default function App() {
     };
   }, []);
 
-  const refreshSavedRecords = useCallback(
-    async (targetGasUrl: string = gasUrl) => {
-      setIsLoadingRecords(true);
-      setLoadError(null);
-      try {
-        const list = await fetchSavedProjects(targetGasUrl);
-        setSavedRecords(list);
-      } catch (err) {
-        const msg =
-          err instanceof Error
-            ? err.message
-            : '저장된 기획서 목록을 불러오는 중 오류가 발생했습니다.';
-        setLoadError(msg);
-      } finally {
-        setIsLoadingRecords(false);
-      }
-    },
-    [gasUrl]
-  );
+  const refreshSavedRecords = useCallback(async () => {
+    setIsLoadingRecords(true);
+    setLoadError(null);
+    try {
+      const list = await fetchSavedProjects();
+      setSavedRecords(list);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : '저장된 기획서 목록을 불러오는 중 오류가 발생했습니다.';
+      setLoadError(msg);
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  }, []);
 
   const handleOpenLoadModal = () => {
     setIsLoadModalOpen(true);
-    void refreshSavedRecords(gasUrl);
+    void refreshSavedRecords();
   };
 
   const handleSaveProject = async () => {
@@ -124,18 +111,17 @@ export default function App() {
 
     setIsSaving(true);
     try {
-      const { record, mode } = await saveOrUpdateProject(plan, gasUrl);
+      const { record, mode } = await saveOrUpdateProject(plan);
       setPlan((prev) => ({
         ...prev,
         id: record.id,
         updatedAt: record.updatedAt,
       }));
-      const destination = storageMode === 'gas' ? '구글 시트' : '브라우저 임시 저장소';
       showToast(
         'success',
         mode === 'updated'
-          ? `${destination}의 "${record.teamName}" 기획서를 수정 저장했어요.`
-          : `${destination}에 "${record.teamName}" 기획서를 저장했어요.`
+          ? `구글 시트의 "${record.teamName}" 기획서를 수정 저장했어요.`
+          : `구글 시트에 "${record.teamName}" 기획서를 저장했어요.`
       );
     } catch (err) {
       const msg =
@@ -175,7 +161,7 @@ export default function App() {
 
   const handleDeleteRecord = async (id: string) => {
     try {
-      await deleteSavedProject(id, gasUrl);
+      await deleteSavedProject(id);
       setSavedRecords((prev) => prev.filter((item) => item.id !== id));
       if (plan.id === id) {
         setPlan((prev) => ({ ...prev, id: null, updatedAt: undefined }));
@@ -186,17 +172,6 @@ export default function App() {
         err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.';
       showToast('error', msg);
     }
-  };
-
-  const handleSaveGasUrl = (nextUrl: string) => {
-    setSavedGasUrl(nextUrl);
-    setGasUrl(nextUrl);
-    showToast(
-      'success',
-      nextUrl
-        ? '구글 시트 웹 앱 URL을 저장했어요.'
-        : '구글 시트 연결을 해제하고 임시 저장 모드로 전환했어요.'
-    );
   };
 
   const handleStartNewProject = () => {
@@ -301,17 +276,6 @@ export default function App() {
               )}
               {plan.id ? '수정 저장' : '저장하기'}
             </button>
-
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              aria-label="구글 시트 연동 설정"
-              title="구글 시트 연동 설정 및 Apps Script 가이드"
-              className="inline-flex items-center gap-1.5 hover:text-slate-900 transition-colors whitespace-nowrap shrink-0"
-            >
-              <Settings className="w-4 h-4 text-slate-500" aria-hidden="true" />
-              시트 설정
-            </button>
           </nav>
 
           {/* Primary Action Zone */}
@@ -337,14 +301,6 @@ export default function App() {
               ) : (
                 <Save className="w-4 h-4" aria-hidden="true" />
               )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              aria-label="구글 시트 연동 설정"
-              className="md:hidden w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 flex items-center justify-center shrink-0"
-            >
-              <Settings className="w-4 h-4" aria-hidden="true" />
             </button>
 
             <button
@@ -419,26 +375,8 @@ export default function App() {
             {/* Bottom Convenient Action Bar under the Form */}
             <div className="mt-6 rounded-2xl bg-white border border-slate-200/80 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                {storageMode === 'gas' ? (
-                  <>
-                    <Cloud className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
-                    <span>구글 시트 연동됨 · 저장 시 학급 시트에 바로 올라가요</span>
-                  </>
-                ) : (
-                  <>
-                    <HardDrive className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
-                    <span>
-                      임시 저장 모드 ·{' '}
-                      <button
-                        type="button"
-                        onClick={() => setIsSettingsOpen(true)}
-                        className="underline font-semibold text-sky-700 hover:text-sky-800"
-                      >
-                        구글 시트 연결하기
-                      </button>
-                    </span>
-                  </>
-                )}
+                <Cloud className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+                <span>학급 구글 시트 연동됨 · 저장 시 우리 팀 기획서가 시트에 바로 기록돼요</span>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
@@ -488,46 +426,29 @@ export default function App() {
       <footer className="border-t border-slate-200/70 bg-white/70 mt-8">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <span>햄스터봇과 함께하는 자율주행 AI 모험 · 초등 교육용 프로젝트 기획 도구</span>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleOpenLoadModal}
-              className="hover:text-slate-900 transition-colors"
-            >
-              저장된 팀 목록
-            </button>
-            <span aria-hidden="true">·</span>
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              className="hover:text-slate-900 transition-colors"
-            >
-              구글 시트 연동 가이드
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleOpenLoadModal}
+            className="hover:text-slate-900 transition-colors"
+          >
+            저장된 팀 목록 보기
+          </button>
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Load / Edit Modal */}
       <LoadProjectModal
         isOpen={isLoadModalOpen}
         onClose={() => setIsLoadModalOpen(false)}
         records={savedRecords}
         isLoading={isLoadingRecords}
         errorMessage={loadError}
-        storageMode={storageMode}
+        storageMode="gas"
         activeProjectId={plan.id}
-        onRefresh={() => void refreshSavedRecords(gasUrl)}
+        onRefresh={() => void refreshSavedRecords()}
         onSelectRecord={handleSelectRecord}
         onDeleteRecord={handleDeleteRecord}
         onUseSampleInstead={handleFillSample}
-      />
-
-      <GasSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        currentGasUrl={gasUrl}
-        onSaveGasUrl={handleSaveGasUrl}
       />
 
       {/* Toast Notification */}
