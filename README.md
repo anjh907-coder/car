@@ -28,9 +28,10 @@ npm run dev
 
 이 저장소에는 `.github/workflows/deploy.yml` 자동 배포 워크플로우가 포함되어 있습니다.
 
-1. 이 프로젝트 코드를 본인의 GitHub 저장소(`main` 브랜치)에 푸시합니다.
+1. 이 프로젝트 코드를 본인의 GitHub 저장소(`main` 또는 `master` 브랜치)에 푸시합니다.
 2. GitHub 저장소 상단 **[Settings] → [Pages]** 로 이동합니다.
-3. **Build and deployment → Source** 를 **GitHub Actions** 로 선택합니다.
+3. **Build and deployment → Source** 를 반드시 **GitHub Actions** 로 선택합니다.
+   - *주의*: `Deploy from a branch (main / root)`로 두면 React/TypeScript 원본 파일(`index.html` → `/src/main.tsx`)이 그대로 열려 **흰 화면**이 나옵니다.
 4. *(선택)* 학생들이 접속하자마자 선생님의 구글 시트에 자동 연결되도록 하려면:
    - **[Settings] → [Secrets and variables] → [Actions] → [Variables]** 탭으로 이동
    - **New repository variable** 클릭
