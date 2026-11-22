@@ -1,0 +1,6 @@
+{
+  "name": "햄스터봇 자율주행 AI 프로젝트 기획서",
+  "description": "초등학생들이 햄스터봇과 함께하는 자율주행 AI 모험 수업을 마친 후, 자신만의 자율주행 자동차 프로젝트를 기획하고 A4 PDF로 저장하며 구글 시트에 공유할 수 있는 교육용 웹앱",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
